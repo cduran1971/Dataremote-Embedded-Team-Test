@@ -1,0 +1,44 @@
+ ██████████              █████              ███████████                                      █████                █████                    
+░░███░░░░███            ░░███              ░░███░░░░░███                                    ░░███                ░░███                     
+ ░███   ░░███  ██████   ███████    ██████   ░███    ░███   ██████  █████████████    ██████  ███████    ██████     ░███  ████████    ██████ 
+ ░███    ░███ ░░░░░███ ░░░███░    ░░░░░███  ░██████████   ███░░███░░███░░███░░███  ███░░███░░░███░    ███░░███    ░███ ░░███░░███  ███░░███
+ ░███    ░███  ███████   ░███      ███████  ░███░░░░░███ ░███████  ░███ ░███ ░███ ░███ ░███  ░███    ░███████     ░███  ░███ ░███ ░███ ░░░ 
+ ░███    ███  ███░░███   ░███ ███ ███░░███  ░███    ░███ ░███░░░   ░███ ░███ ░███ ░███ ░███  ░███ ███░███░░░      ░███  ░███ ░███ ░███  ███
+ ██████████  ░░████████  ░░█████ ░░████████ █████   █████░░██████  █████░███ █████░░██████   ░░█████ ░░██████     █████ ████ █████░░██████ 
+░░░░░░░░░░    ░░░░░░░░    ░░░░░   ░░░░░░░░ ░░░░░   ░░░░░  ░░░░░░  ░░░░░ ░░░ ░░░░░  ░░░░░░     ░░░░░   ░░░░░░     ░░░░░ ░░░░ ░░░░░  ░░░░░░  
+                                                                                                                                           
+                                                                                                                                           
+                                                                                                                                           
+Embedded Team Test - Base64 UDP Server
+
+Task:
+
+Create a UDP server using standard libc calls and Linux APIs.
+
+The server application must take as only parameter the port number it will listen to.
+
+The server will accumulate the information sent by the client.
+
+If the server detects a <CR> caracter (Decimal 13, Hex 0x0D), the server will send to client the Base 64 representation of the data received so far.
+
+The server forgets all data before <CR> and starts over.
+
+You may use netcat utiliy from client side to control the server.
+
+This is an example of expected usage
+
+# Run server on port 1024
+$ myserver 1024 &
+
+# Run netcat as client
+$ nc -u localhost 1024
+Hello World!
+SGVsbG8gV29ybGQh
+
+
+Notice how the server replied with `SGVsbG8gV29ybGQh` which is the netcat representation of `Hello World!`
+
+Notes:
+
+- Developer is free to fill any gaps on the requirements and sanitize execution at their discretion, taking into account memory safety and performance
+- Attention to code style and modularity will have a positive effect on the review.
