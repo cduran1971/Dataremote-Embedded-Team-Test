@@ -13,11 +13,9 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include "encode64.h"
+#include "constants.h"
 
-const unsigned short kMAX_PORT_NUMBER = 65535;
-const char kINET_ADDR[] = "127.0.0.1";
-const int kMAX_BIND_RETRIES = 3;
-const int kinput_buffer_SIZE = 1024;
 
 void errout(char *err_string) 
 {
@@ -25,7 +23,6 @@ void errout(char *err_string)
 	exit(EXIT_FAILURE);
 }
 
-// Make sure the argument is a valid port number
 int is_port_number(char *a_string)
 {
 	int length = strlen(a_string);
@@ -46,39 +43,32 @@ int is_port_number(char *a_string)
 }
 
 int main(int argc, char *argv[])
-{
-	unsigned short port_num = 0;
-	int bindTries = kMAX_BIND_RETRIES;
-	int socketId;
-  	struct sockaddr_in my_sock, their_sock;
-  	char input_buffer[kinput_buffer_SIZE];
-  	socklen_t my_addr_size, their_addr_size;
-
-  	// ----------------------------------
-  	char output_buffer[10240];
-  	int output_buffer_index = 0;
-  	int input_buffer_index = 0;
-  	int num_chars_in;
-  	// ----------------------------------
-
+{	
+  	/************** Validate Arguments **************/
 	if((argc != 2) || (!is_port_number(argv[1])))
 	{
 		errout("Invalid argument(s)");
 	}
+	unsigned short port_num = atoi(argv[1]);
+	/************ End Validate Arguments ************/
+
+	/***************** Socket Setup *****************/
+	int socketId = 0;
+	struct sockaddr_in my_sock, their_sock;
+  	socklen_t my_addr_size, their_addr_size;
 
 	if(!(socketId = socket(AF_INET, SOCK_DGRAM, 0)))
 	{
 		errout("Socket error");
 	}
-	
-	port_num = atoi(argv[1]);
 
 	my_addr_size = sizeof(my_sock);
 	memset(&my_sock, '\0', my_addr_size);
  	my_sock.sin_family = AF_INET;
  	my_sock.sin_port = htons(port_num);
- 	my_sock.sin_addr.s_addr = inet_addr(kINET_ADDR);
+ 	my_sock.sin_addr.s_addr = inet_addr(INET_ADDR);
 
+	int bindTries = MAX_BIND_RETRIES;
  	while(bindTries--)
  	{
  		if(bind(socketId, (struct sockaddr*)&my_sock, my_addr_size) == 0)
@@ -100,26 +90,43 @@ int main(int argc, char *argv[])
  	}
 
  	their_addr_size = sizeof(their_sock);
+ 	/*************** End Socket Setup ***************/
 
+  	// ----------------------------------
+  	size_t current_ob_size = 2*INPUT_BUFFER_SIZE;
+  	char input_buffer[INPUT_BUFFER_SIZE];
+  	unsigned char output_buffer[current_ob_size];
+  	size_t ob_index = 0;
+  	size_t ib_index = 0;
+  	size_t chars_read = 0;
+  	// ----------------------------------
+
+	memset(output_buffer, '\0', current_ob_size*sizeof(char));
  	while(1) {
- 		if ((num_chars_in = recvfrom(socketId, input_buffer, sizeof(input_buffer), 0, (struct sockaddr*)&their_sock, &their_addr_size)) < 0)
+ 		if ((chars_read = recvfrom(socketId, input_buffer, sizeof(input_buffer), 0, (struct sockaddr*)&their_sock, &their_addr_size)) < 0)
  		{
         	errout("Receive error occured");
     	}
 
-    	for(input_buffer_index=0; input_buffer_index < num_chars_in; input_buffer_index++) {
-    		output_buffer[output_buffer_index] = input_buffer[input_buffer_index];
-    		output_buffer_index++;
-    	}
+    	for(ib_index=0; ib_index < chars_read; ib_index++) {
+    		if(input_buffer[ib_index] == TERMINATOR_CHAR)
+    		{
+    			size_t input_size = ob_index;
+    			size_t encoded_length = 0;
+    			char *encoded_data = base64_encode(output_buffer, input_size, &encoded_length);
 
-    	if(strchr(output_buffer, (char)13))
-    	{
-    		output_buffer[output_buffer_index] = 0;
-			printf("%s\n", output_buffer);
-			output_buffer_index = 0;	// Clear the output buffer
+    			sendto(socketId, encoded_data, encoded_length, 0, (struct sockaddr*)&their_sock, their_addr_size);
+    			sendto(socketId, "\n", 1, 0, (struct sockaddr*)&their_sock, their_addr_size);
+				memset(output_buffer, '\0', current_ob_size*sizeof(char));
+				free(encoded_data);
+				ob_index = 0;
+    			break;
+    		}
+
+    		output_buffer[ob_index] = (unsigned char)input_buffer[ib_index];
+    		ob_index++;
     	}
  	}
  	
  	return 0;
 }
-
