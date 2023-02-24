@@ -5,8 +5,5 @@
  * Project: Embedded Team Test - Base64 UDP Server				*
  ***************************************************************/
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-
-char *base64_encode(const unsigned char *data, size_t input_length, size_t *output_length);
+void errout(char *err_string);
+int port_number_valid(char *a_string);

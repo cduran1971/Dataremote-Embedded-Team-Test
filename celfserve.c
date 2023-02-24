@@ -1,132 +1,102 @@
-// Task:
-// Create a UDP server using standard libc calls and Linux APIs.
-// The server application must take as only parameter the port number it will listen to.
-// The server will accumulate the information sent by the client.
-// If the server detects a <CR> caracter (Decimal 13, Hex 0x0D), the server will send to client the Base 64 representation of the data received so far.
-// The server forgets all data before <CR> and starts over.
+/****************************************************************
+ * Developer:	Celso Duran										*
+ * Client:		Dataremote Inc.									*
+ * Date:		02/24/2023										*
+ * Project: Embedded Team Test - Base64 UDP Server				*
+ * Description:													*
+ * 																*
+ * Create a UDP server using standard libc calls and Linux APIs.*
+ * The server application must take as only parameter the port 	*
+ * number it will listen to. The server will accumulate the 	*
+ * information sent by the client. If the server detects a <CR> *
+ * caracter (Decimal 13, Hex 0x0D), the server will send to 	*
+ * client the Base 64 representation of the data received so 	*
+ * far. The server forgets all data before <CR> and starts over.*
+ ***************************************************************/
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include "sockets.h"
 #include "encode64.h"
+#include "misc.h"
 #include "constants.h"
 
-
-void errout(char *err_string) 
-{
-	printf("%s\n", err_string);
-	exit(EXIT_FAILURE);
-}
-
-int is_port_number(char *a_string)
-{
-	int length = strlen(a_string);
-
-	// Port numbers have at most 5 digits
-	if(length > 6)
-		return 0;
-
-	for(int i=0; i < length; ++i) {
-		if(a_string[i] < '0' || a_string[i] > '9' )
-			return 0;
-	}
-
-	if(atoi(a_string) > kMAX_PORT_NUMBER)
-		return 0;
-
-	return 1;
-}
 
 int main(int argc, char *argv[])
 {	
   	/************** Validate Arguments **************/
-	if((argc != 2) || (!is_port_number(argv[1])))
+	if((argc != 2) || (!port_number_valid(argv[1])))
 	{
 		errout("Invalid argument(s)");
 	}
-	unsigned short port_num = atoi(argv[1]);
-	/************ End Validate Arguments ************/
 
 	/***************** Socket Setup *****************/
-	int socketId = 0;
-	struct sockaddr_in my_sock, their_sock;
-  	socklen_t my_addr_size, their_addr_size;
+	initialize_socket(atoi(argv[1]));
 
-	if(!(socketId = socket(AF_INET, SOCK_DGRAM, 0)))
-	{
-		errout("Socket error");
-	}
-
-	my_addr_size = sizeof(my_sock);
-	memset(&my_sock, '\0', my_addr_size);
- 	my_sock.sin_family = AF_INET;
- 	my_sock.sin_port = htons(port_num);
- 	my_sock.sin_addr.s_addr = inet_addr(INET_ADDR);
-
-	int bindTries = MAX_BIND_RETRIES;
- 	while(bindTries--)
- 	{
- 		if(bind(socketId, (struct sockaddr*)&my_sock, my_addr_size) == 0)
- 		{
- 			getsockname(socketId, (struct sockaddr*)&my_sock, &my_addr_size);
- 			port_num = ntohs(my_sock.sin_port);
- 			printf("Celfserve listening on port: %d\n", port_num);
- 			break;
- 		}
-
- 		if(port_num == 0)
- 		{
- 			errout("Bind error occured");
- 		} else {
- 			printf("Port %d cannot be used, searching for next available port...\n", port_num);
- 			port_num = 0;
- 			my_sock.sin_port = htons(port_num);
- 		}
- 	}
-
- 	their_addr_size = sizeof(their_sock);
- 	/*************** End Socket Setup ***************/
-
-  	// ----------------------------------
-  	size_t current_ob_size = 2*INPUT_BUFFER_SIZE;
+	/***************** Server Loop ******************/
+	// Input and Output buffers start off the same size 	
+  	size_t outbuff_index = 0;
+  	size_t output_buffer_size = INPUT_BUFFER_SIZE;
   	char input_buffer[INPUT_BUFFER_SIZE];
-  	unsigned char output_buffer[current_ob_size];
-  	size_t ob_index = 0;
-  	size_t ib_index = 0;
-  	size_t chars_read = 0;
-  	// ----------------------------------
+  	unsigned char *output_buffer = (unsigned char *)malloc(output_buffer_size * sizeof(unsigned char));
 
-	memset(output_buffer, '\0', current_ob_size*sizeof(char));
- 	while(1) {
- 		if ((chars_read = recvfrom(socketId, input_buffer, sizeof(input_buffer), 0, (struct sockaddr*)&their_sock, &their_addr_size)) < 0)
- 		{
-        	errout("Receive error occured");
-    	}
+  	if(output_buffer == NULL)
+  	{
+  		errout("Error allocating output buffer!");
+  	}
 
-    	for(ib_index=0; ib_index < chars_read; ib_index++) {
-    		if(input_buffer[ib_index] == TERMINATOR_CHAR)
+ 	while(1) 
+ 	{
+ 		size_t chars_read = receive_data(input_buffer, sizeof(input_buffer));
+
+ 		// Flag to force a data send even if a <CR> hasn't been received yet
+    	char force_send = 0;
+
+    	for(size_t ib_index=0; ib_index < chars_read; ib_index++) 
+    	{
+    		/***************** Auto Buffer Resize ******************/
+    		if(outbuff_index == (output_buffer_size-1))
     		{
-    			size_t input_size = ob_index;
-    			size_t encoded_length = 0;
-    			char *encoded_data = base64_encode(output_buffer, input_size, &encoded_length);
+    			if(output_buffer_size == MAX_BUFFER_SIZE)
+    			{
+    				printf("Output buffer full, sending data now...\n");
+    				force_send = 1;
+    			} else {
+    				output_buffer_size += BUFFER_SIZE_INC;
+    				output_buffer = realloc(output_buffer, output_buffer_size * sizeof(unsigned char));
+    				
+    				if(output_buffer == NULL)
+  					{
+  						errout("Error allocating output buffer!");
+  					}
+    			}
+    		}
+    		/*************** End Auto Buffer Resize ****************/
 
-    			sendto(socketId, encoded_data, encoded_length, 0, (struct sockaddr*)&their_sock, their_addr_size);
-    			sendto(socketId, "\n", 1, 0, (struct sockaddr*)&their_sock, their_addr_size);
-				memset(output_buffer, '\0', current_ob_size*sizeof(char));
+    		if(input_buffer[ib_index] == TERMINATOR_CHAR || force_send)
+    		{
+    			size_t encoded_length = 0;
+    			char *encoded_data = base64_encode(output_buffer, outbuff_index, &encoded_length);
+    			send_data(encoded_data, encoded_length);
 				free(encoded_data);
-				ob_index = 0;
+
+				// Shrink the output buffer back to its original size
+				output_buffer_size = INPUT_BUFFER_SIZE;
+				output_buffer = realloc(output_buffer, output_buffer_size * sizeof(unsigned char));
+				
+				if(output_buffer == NULL)
+  				{
+  					errout("Error allocating output buffer!");
+  				}
+
+				outbuff_index = 0;
     			break;
     		}
-
-    		output_buffer[ob_index] = (unsigned char)input_buffer[ib_index];
-    		ob_index++;
+    		output_buffer[outbuff_index] = (unsigned char)input_buffer[ib_index];
+    		outbuff_index++;
     	}
  	}
- 	
  	return 0;
 }

@@ -1,7 +1,11 @@
+/****************************************************************
+ * Developer:   Celso Duran                                     *
+ * Client:      Dataremote Inc.                                 *
+ * Date:        02/24/2023                                      *
+ * Project: Embedded Team Test - Base64 UDP Server              *
+ ***************************************************************/
+
 #include "encode64.h"
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
@@ -19,10 +23,12 @@ char *base64_encode(const unsigned char *data, size_t input_length, size_t *outp
     *output_length = 4 * ((input_length + 2) / 3);
  
     char *encoded_data = malloc(*output_length);
-    if (encoded_data == NULL) return NULL;
+    
+    if (encoded_data == NULL) 
+        return NULL;
  
-    for (int i = 0, j = 0; i < input_length;) {
- 
+    for (int i = 0, j = 0; i < input_length;) 
+    {
         uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
         uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
         uint32_t octet_c = i < input_length ? (unsigned char)data[i++] : 0;
