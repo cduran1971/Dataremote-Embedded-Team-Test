@@ -1,3 +1,10 @@
+/****************************************************************
+ * Developer:	Celso Duran										*
+ * Client:		Dataremote Inc.									*
+ * Date:		02/24/2023										*
+ * Project: Embedded Team Test - Base64 UDP Server				*
+ ***************************************************************/
+
 #include "sockets.h"
 #include "misc.h"
 #include "constants.h"
