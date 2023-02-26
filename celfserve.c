@@ -69,7 +69,8 @@ int main(int argc, char *argv[])
     				
     				if(output_buffer == NULL)
   					{
-  						errout("Error allocating output buffer!");
+  						printf("Buffer can't resize, sending data now...\n");
+  						force_send = 1;
   					}
     			}
     		}
