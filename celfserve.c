@@ -69,8 +69,7 @@ int main(int argc, char *argv[])
     				
     				if(output_buffer == NULL)
   					{
-  						printf("Buffer can't resize, sending data now...\n");
-  						force_send = 1;
+  						errout("Error allocating output buffer!");
   					}
     			}
     		}
@@ -80,6 +79,12 @@ int main(int argc, char *argv[])
     		{
     			size_t encoded_length = 0;
     			char *encoded_data = base64_encode(output_buffer, outbuff_index, &encoded_length);
+
+    			if(encoded_data == NULL)
+    			{
+    				errout("Error allocating encoded data buffer!");	
+    			}
+
     			send_data(encoded_data, encoded_length);
 				free(encoded_data);
 
